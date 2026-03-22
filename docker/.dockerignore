@@ -1,0 +1,45 @@
+# ── Python cache ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# ── Virtual environments ───────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Secrets / environment ──────────────────────────────────────────────────────
+.env
+
+# ── IDE / OS ───────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# ── Tests & coverage ──────────────────────────────────────────────────────────
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── Runtime data (mounted as volumes in K8s) ───────────────────────────────────
+data/
+*.log
+*.faiss
+*.pkl
+
+# ── Git ───────────────────────────────────────────────────────────────────────
+.git/
+.gitignore
+
+# ── Documentation source (not needed in image) ────────────────────────────────
+RUNBOOK.md
+docs/
+
+# ── K8s + scripts (not application code) ─────────────────────────────────────
+k8s/
+scripts/
+docker/
