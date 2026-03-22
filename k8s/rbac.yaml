@@ -1,0 +1,75 @@
+---
+# k8s/rbac.yaml
+# ServiceAccount + ClusterRole + binding so the agent pod can interact
+# with the Kubernetes API (read pods/logs, list events, etc.)
+#
+# Principle of least privilege:
+#  - Read-only access to most resources
+#  - Write access ONLY to pods (delete – for remediation) with explicit confirmation gate
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ai-devops-agent-sa
+  namespace: ai-devops-agent
+  labels:
+    app.kubernetes.io/name: ai-devops-agent
+    app.kubernetes.io/component: rbac
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ai-devops-agent-role
+  labels:
+    app.kubernetes.io/name: ai-devops-agent
+    app.kubernetes.io/component: rbac
+rules:
+  # Read-only access: pods, events, nodes, namespaces
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+      - events
+      - nodes
+      - namespaces
+      - services
+      - endpoints
+      - configmaps
+    verbs: ["get", "list", "watch"]
+
+  # Metrics (kubectl top)
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list"]
+
+  # Deployment read + rollout restart
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - replicasets
+      - daemonsets
+      - statefulsets
+    verbs: ["get", "list", "watch", "patch", "update"]
+
+  # Allow pod deletion (remediation – always gated by confirmation in the agent)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ai-devops-agent-binding
+  labels:
+    app.kubernetes.io/name: ai-devops-agent
+    app.kubernetes.io/component: rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ai-devops-agent-role
+subjects:
+  - kind: ServiceAccount
+    name: ai-devops-agent-sa
+    namespace: ai-devops-agent

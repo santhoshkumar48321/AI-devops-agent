@@ -1,0 +1,10 @@
+---
+# k8s/namespace.yaml
+# Dedicated namespace to isolate the AI DevOps Agent workloads.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-devops-agent
+  labels:
+    app.kubernetes.io/name: ai-devops-agent
+    app.kubernetes.io/component: namespace

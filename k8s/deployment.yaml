@@ -1,0 +1,108 @@
+---
+# k8s/deployment.yaml
+# Kubernetes Deployment for the AI DevOps Agent backend (FastAPI).
+# Resource limits are set conservatively for a testing / single-node cluster.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-devops-agent
+  namespace: ai-devops-agent
+  labels:
+    app.kubernetes.io/name: ai-devops-agent
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-devops-agent
+  template:
+    metadata:
+      labels:
+        app: ai-devops-agent
+        app.kubernetes.io/name: ai-devops-agent
+        app.kubernetes.io/component: backend
+    spec:
+      serviceAccountName: ai-devops-agent-sa
+
+      # Security context: run as non-root user (uid 1000 = "agent" in Dockerfile)
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+
+      containers:
+        - name: ai-devops-agent
+          # Replace with your actual image name after building:
+          #   docker build -t ai-devops-agent:1.0.0 -f docker/Dockerfile .
+          image: ai-devops-agent:1.0.0
+          imagePullPolicy: IfNotPresent   # Use local image on single-node test cluster
+
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+
+          # Load non-sensitive config from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: ai-devops-agent-config
+
+          # Load sensitive values from Secret
+          env:
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ai-devops-agent-secret
+                  key: OPENAI_API_KEY
+
+          # Conservative resource limits for a 4-CPU / 8 GB test VM
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+
+          # Liveness probe: restart if FastAPI becomes completely unresponsive
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # Readiness probe: only route traffic once the app is ready
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # Writable volumes for runtime data (not baked into the image)
+          volumeMounts:
+            - name: agent-data
+              mountPath: /app/data
+            - name: agent-docs
+              mountPath: /app/docs
+
+      volumes:
+        # emptyDir volumes are ephemeral (data lost on pod restart).
+        # For persistence, replace with a PersistentVolumeClaim.
+        - name: agent-data
+          emptyDir: {}
+        - name: agent-docs
+          emptyDir: {}
+
+      # Tolerate single-node clusters where control-plane has taints
+      tolerations:
+        - key: "node-role.kubernetes.io/control-plane"
+          operator: "Exists"
+          effect: "NoSchedule"
